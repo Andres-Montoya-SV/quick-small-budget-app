@@ -7,6 +7,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import os
 from tkcalendar import DateEntry  # Importa DateEntry desde tkcalendar
+from openpyxl.chart import PieChart, Reference
 
 # Cargamos el ENV
 load_dotenv()
@@ -110,6 +111,32 @@ def generar_reporte():
         timestamp = gasto["timestamp"].strftime("%Y-%m-%d %H:%M:%S")
         mes = datetime.strptime(fecha, "%Y-%m-%d").strftime("%B")
         ws.append([fecha, descripcion, monto, categoria, timestamp, gastoNecesario, mes])
+
+    ws.append([])
+    ws.append(["Total de gastos", "=SUM(C2:C{})".format(len(gastos) + 1)])
+
+    ws = wb.create_sheet("Resumen")
+    ws.append(["Categoría", "Monto"])
+    categorias = {}
+    for gasto in gastos:
+        categoria = gasto["categoria"]
+        monto = gasto["monto"]
+        if categoria in categorias:
+            categorias[categoria] += monto
+        else:
+            categorias[categoria] = monto
+
+    for categoria, monto in categorias.items():
+
+        ws.append([categoria, monto])
+
+    pie = PieChart()
+    labels = Reference(ws, min_col=1, min_row=2, max_row=len(categorias) + 1)
+    data = Reference(ws, min_col=2, min_row=1, max_row=len(categorias) + 1)
+    pie.add_data(data, titles_from_data=True)
+    pie.set_categories(labels)
+    pie.title = "Gastos por categoría"
+    ws.add_chart(pie, "A10")
 
     nombre_archivo = f"reporte_gastos_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.xlsx"
     wb.save(nombre_archivo)
